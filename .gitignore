@@ -1,0 +1,13 @@
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# 密钥配置
+.env
+**/.env
+
+# 用户上传的隐私资料
+backend/career_rag/data/uploads/

@@ -11,3 +11,4 @@ __pycache__/
 
 # 用户上传的隐私资料
 backend/career_rag/data/uploads/
+backend/career_rag/data/parsed/

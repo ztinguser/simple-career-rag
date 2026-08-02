@@ -1,12 +1,16 @@
+import logging
+from urllib.parse import quote, unquote
 from pathlib import Path
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from career_rag.config.settings import settings
-from career_rag.schemas.document import UploadDocumentResponse
+from career_rag.schemas.document import ParseDocumentResponse, UploadDocumentResponse
+from starlette.concurrency import run_in_threadpool
+from career_rag.services.document_parser import DocumentParseError,parse_document
 
-
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["个人资料"])
 
 # 当前项目允许上传的个人资料格式
@@ -58,7 +62,9 @@ async def upload_document(
     document_id = uuid4().hex
 
     # UUID 防止同名文件互相覆盖，同时保留原始文件名便于追溯
-    stored_filename = f"{document_id}__{filename}"
+    # Docling 在 Windows 下可能无法读取中文路径，因此磁盘文件名使用 URL 编码
+    encoded_filename = quote(filename, safe=".")
+    stored_filename = f"{document_id}__{encoded_filename}"
     target_path = settings.upload_dir / stored_filename
 
     try:
@@ -77,4 +83,64 @@ async def upload_document(
         filename=filename,
         size_bytes=len(content),
         message="文件上传成功",
+    )
+
+
+@router.post(
+    "/parse/{document_id}",
+    response_model=ParseDocumentResponse,
+)
+async def parse_uploaded_document(
+    document_id: str,
+) -> ParseDocumentResponse:
+    """解析已经上传的个人资料。"""
+
+    try:
+        # 校验并统一 UUID 格式，避免把非法字符传给文件搜索
+        normalized_id = UUID(document_id).hex
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_id 格式不正确",
+        ) from exc
+
+    matched_files = list(
+        settings.upload_dir.glob(f"{normalized_id}__*")
+    )
+
+    if not matched_files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="没有找到对应的上传文件",
+        )
+
+    source_path = matched_files[0]
+    encoded_filename = source_path.name.split("__", maxsplit=1)[1]
+    # 解析时恢复原文件名
+    original_filename = unquote(encoded_filename)
+
+    try:
+        # Docling 是耗时的同步任务，放入线程池，避免阻塞 FastAPI
+        parsed = await run_in_threadpool(
+            parse_document,
+            source_path,
+            normalized_id,
+        )
+    except DocumentParseError as exc:
+        logger.exception(
+            "文档解析失败，document_id=%s",
+            normalized_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="文档解析失败，请确认文件未损坏且内容可以读取",
+        ) from exc
+
+    return ParseDocumentResponse(
+        document_id=normalized_id,
+        filename=original_filename,
+        page_count=parsed.page_count,
+        character_count=len(parsed.markdown),
+        markdown_preview=parsed.markdown[:500],
+        message="文档解析成功",
     )

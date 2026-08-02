@@ -6,9 +6,13 @@ from uuid import uuid4, UUID
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from career_rag.config.settings import settings
-from career_rag.schemas.document import ParseDocumentResponse, UploadDocumentResponse
+from career_rag.schemas.document import (
+    ChunkDocumentResponse,
+    ParseDocumentResponse,
+    UploadDocumentResponse)
 from starlette.concurrency import run_in_threadpool
 from career_rag.services.document_parser import DocumentParseError,parse_document
+from career_rag.retriever.chunker import DocumentChunkError, build_document_chunks
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["个人资料"])
@@ -143,4 +147,70 @@ async def parse_uploaded_document(
         character_count=len(parsed.markdown),
         markdown_preview=parsed.markdown[:500],
         message="文档解析成功",
+    )
+
+
+@router.post(
+    "/chunk/{document_id}",
+    response_model=ChunkDocumentResponse,
+)
+async def chunk_parsed_document(
+    document_id: str,
+) -> ChunkDocumentResponse:
+    """生成文档 Chunk，并返回少量预览。"""
+
+    try:
+        normalized_id = UUID(document_id).hex
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_id 格式不正确",
+        ) from exc
+
+    parsed_path = settings.parsed_dir / f"{normalized_id}.json"
+
+    if not parsed_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="请先解析该文档",
+        )
+
+    matched_files = list(
+        settings.upload_dir.glob(f"{normalized_id}__*")
+    )
+
+    if not matched_files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="没有找到对应的原始文件",
+        )
+
+    encoded_filename = matched_files[0].name.split(
+        "__",
+        maxsplit=1,
+    )[1]
+    original_filename = unquote(encoded_filename)
+
+    try:
+        chunks = await run_in_threadpool(
+            build_document_chunks,
+            normalized_id,
+            original_filename,
+        )
+    except DocumentChunkError as exc:
+        logger.exception(
+            "文档分块失败，document_id=%s",
+            normalized_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="文档分块失败，请检查解析结果",
+        ) from exc
+
+    return ChunkDocumentResponse(
+        document_id=normalized_id,
+        filename=original_filename,
+        chunk_count=len(chunks),
+        chunks_preview=chunks,
+        message="文档分块成功",
     )

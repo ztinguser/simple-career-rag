@@ -48,3 +48,12 @@ class ChunkDocumentResponse(BaseModel):
     chunk_count: int
     chunks_preview: list[DocumentChunk]
     message: str
+
+
+class HybridRetrievedChunk(RetrievedChunk):
+    """经过 Dense 和 BM25 融合后的检索结果。
+
+    保留两个排名，方便观察某个 Chunk 是怎么被召回的
+    """
+    dense_rank: int | None = None
+    bm25_rank: int | None = None

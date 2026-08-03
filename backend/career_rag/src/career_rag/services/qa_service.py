@@ -8,7 +8,8 @@ from langchain_core.messages import (
 from career_rag.config.settings import settings
 from career_rag.llm.chat_model import create_chat_model
 from career_rag.prompts.rag import (
-    INSUFFICIENT_ANSWER,
+    NO_EVIDENCE_ANSWER,
+    NO_EVIDENCE_PREFIX,
     SYSTEM_PROMPT,
 )
 from career_rag.retriever.hybrid import hybrid_retrieve
@@ -77,25 +78,20 @@ def extract_citation_ids(
     return citation_ids
 
 
-def answer_question(
+def generate_answer(
     question: str,
-    top_k: int = settings.retrieval_top_k,
+    chunks: list[HybridRetrievedChunk],
 ) -> RAGAnswer:
-    """检索履历原文，并生成带引用的回答。"""
+    """根据已经检索到的 Chunk 生成回答。"""
 
     if not question.strip():
         raise RAGAnswerError("生成回答失败：问题不能为空")
 
     try:
-        chunks = hybrid_retrieve(
-            question=question,
-            top_k=top_k,
-        )
-
         if not chunks:
             return RAGAnswer(
                 question=question,
-                answer=INSUFFICIENT_ANSWER,
+                answer=NO_EVIDENCE_ANSWER,
                 citations=[],
             )
 
@@ -126,10 +122,20 @@ def answer_question(
             chunk_count=len(chunks),
         )
 
-        # 有资料、有答案，却没有引用时，拒绝返回不可追溯结果
-        if not citation_ids and answer != INSUFFICIENT_ANSWER:
+        has_no_evidence_answer = answer.startswith(
+            NO_EVIDENCE_PREFIX
+        )
+
+        # 有事实结论却没有引用时，拒绝返回不可追溯结果
+        if not citation_ids and not has_no_evidence_answer:
             raise RAGAnswerError(
                 "生成模型没有为回答提供原文引用"
+            )
+
+        # “未发现记录”本身没有原文证据，不应引用无关 Chunk
+        if has_no_evidence_answer and citation_ids:
+            raise RAGAnswerError(
+                "无资料回答不应包含原文引用"
             )
 
         citations = [
@@ -149,6 +155,31 @@ def answer_question(
             question=question,
             answer=answer,
             citations=citations,
+        )
+
+    except RAGAnswerError:
+        raise
+    except Exception as exc:
+        raise RAGAnswerError(
+            f"生成履历回答失败：{question}"
+        ) from exc
+
+
+def answer_question(
+    question: str,
+    top_k: int = settings.retrieval_top_k,
+) -> RAGAnswer:
+    """不经过 LangGraph 的线性 RAG 问答入口。"""
+
+    try:
+        chunks = hybrid_retrieve(
+            question=question,
+            top_k=top_k,
+        )
+
+        return generate_answer(
+            question=question,
+            chunks=chunks,
         )
 
     except RAGAnswerError:

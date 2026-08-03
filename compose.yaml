@@ -1,0 +1,15 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.2
+    container_name: career-rag-qdrant
+    restart: unless-stopped
+    ports:
+      # 只允许本机访问，开发环境暂时不配置 API Key
+      - "127.0.0.1:6333:6333"
+    volumes:
+      # Windows 使用 Docker 命名卷，避免目录挂载的兼容问题
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  qdrant_data:
+    name: career-rag-qdrant-data

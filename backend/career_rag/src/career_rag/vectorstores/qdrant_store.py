@@ -229,3 +229,48 @@ def search_chunks(
         raise QdrantStoreError(
             "Qdrant 相似度检索失败"
         ) from exc
+
+
+def list_all_chunks() -> list[DocumentChunk]:
+    """读取 Qdrant 中的全部文档 Chunk，不加载向量。"""
+
+    try:
+        ensure_collection()
+
+        chunks: list[DocumentChunk] = []
+        offset = None
+
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=settings.qdrant_collection_name,
+                # 一次取 100 个
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            for point in points:
+                if point.payload is None:
+                    continue
+
+                chunks.append(
+                    DocumentChunk(
+                        chunk_id=str(point.id),
+                        **point.payload,
+                    )
+                )
+
+            if next_offset is None:
+                break
+
+            offset = next_offset
+
+        return chunks
+
+    except QdrantStoreError:
+        raise
+    except Exception as exc:
+        raise QdrantStoreError(
+            "读取 Qdrant 文档块失败"
+        ) from exc

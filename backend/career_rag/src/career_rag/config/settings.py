@@ -27,6 +27,18 @@ class Settings(BaseSettings):
     # 默认召回 5 条，可通过 .env 的 RETRIEVAL_TOP_K 调整
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
 
+    # 生成模型同样使用 OpenAI 兼容接口
+    llm_api_key: str | None = None
+    llm_base_url: str = (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+    llm_model: str = "qwen-plus"
+    llm_temperature: float = Field(
+        default=0.1,
+        ge=0,
+        le=2,
+    )
+
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",

@@ -34,6 +34,11 @@ class DocumentChunk(BaseModel):
     # 标题加原文，用于生成向量
     embedding_text: str
 
+class RetrievedChunk(DocumentChunk):
+    """从向量库检索到的文档块。"""
+
+    # Qdrant 返回的余弦相似度分数
+    score: float
 
 class ChunkDocumentResponse(BaseModel):
     """文档分块结果。"""

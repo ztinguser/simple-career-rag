@@ -1,7 +1,7 @@
 from qdrant_client import QdrantClient, models
 
 from career_rag.config.settings import settings
-from career_rag.schemas.document import DocumentChunk
+from career_rag.schemas.document import DocumentChunk, RetrievedChunk
 
 
 class QdrantStoreError(RuntimeError):
@@ -96,7 +96,7 @@ def recreate_empty_collection() -> None:
         raise
     except Exception as exc:
         raise QdrantStoreError("重建 Qdrant 集合失败") from exc
-    
+
 
 def replace_document_chunks(
     chunks: list[DocumentChunk],
@@ -175,4 +175,57 @@ def replace_document_chunks(
     except Exception as exc:
         raise QdrantStoreError(
             f"文档向量写入 Qdrant 失败：{document_id}"
+        ) from exc
+
+
+def search_chunks(
+    query_vector: list[float],
+    top_k: int = settings.retrieval_top_k,
+) -> list[RetrievedChunk]:
+    """根据查询向量搜索最相关的 Chunk。"""
+
+    if len(query_vector) != settings.embedding_dimension:
+        raise QdrantStoreError(
+            f"查询向量维度错误：期望 "
+            f"{settings.embedding_dimension} 维，"
+            f"实际 {len(query_vector)} 维"
+        )
+
+    if not 1 <= top_k <= 20:
+        raise QdrantStoreError("top_k 必须在 1 到 20 之间")
+
+    try:
+        ensure_collection()
+
+        response = client.query_points(
+            collection_name=settings.qdrant_collection_name,
+            query=query_vector,
+            # 指定使用名为 dense 的向量
+            using="dense",
+            limit=top_k,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        results: list[RetrievedChunk] = []
+
+        for point in response.points:
+            if point.payload is None:
+                continue
+
+            results.append(
+                RetrievedChunk(
+                    chunk_id=str(point.id),
+                    score=point.score,
+                    **point.payload,
+                )
+            )
+
+        return results
+
+    except QdrantStoreError:
+        raise
+    except Exception as exc:
+        raise QdrantStoreError(
+            "Qdrant 相似度检索失败"
         ) from exc

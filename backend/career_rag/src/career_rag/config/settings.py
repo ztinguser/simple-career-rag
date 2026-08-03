@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/career_rag 目录
@@ -22,6 +23,9 @@ class Settings(BaseSettings):
     embedding_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     embedding_model: str = "text-embedding-v4"
     embedding_dimension: int = 1024
+
+    # 默认召回 5 条，可通过 .env 的 RETRIEVAL_TOP_K 调整
+    retrieval_top_k: int = Field(default=5, ge=1, le=20)
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",

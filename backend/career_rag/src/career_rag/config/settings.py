@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection_name: str = "career_chunks"
 
-    embedding_model: str = "tongyi-embedding-vision-plus-2026-03-06"
-    embedding_dimension: int = 1152
+    # Embedding 使用 OpenAI 兼容接口，方便以后更换服务商
+    embedding_api_key: str | None = None
+    embedding_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    embedding_model: str = "text-embedding-v4"
+    embedding_dimension: int = 1024
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",

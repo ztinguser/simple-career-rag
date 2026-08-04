@@ -27,6 +27,10 @@ def main() -> None:
 
     print("\n引用：")
 
+    if not result.citations:
+        print("无")
+        return
+
     for citation in result.citations:
         pages = ", ".join(
             str(page) for page in citation.page_numbers

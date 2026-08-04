@@ -1,26 +1,57 @@
-from career_rag.config.settings import settings
+from typing import Literal
+
+from career_rag.agents.query_planner import plan_query
 from career_rag.graph.state import CareerRAGState
+from career_rag.prompts.rag import OUT_OF_SCOPE_ANSWER
 from career_rag.retriever.hybrid import hybrid_retrieve
+from career_rag.schemas.qa import RAGAnswer
 from career_rag.services.qa_service import generate_answer
+
+
+def plan_node(
+    state: CareerRAGState,
+) -> dict:
+    """分析问题并生成检索计划。"""
+
+    plan = plan_query(state["question"])
+
+    return {
+        "plan": plan,
+    }
+
+
+def route_after_plan(
+    state: CareerRAGState,
+) -> Literal["retrieve", "reject"]:
+    """根据问题类型选择下一节点。"""
+
+    plan = state.get("plan")
+
+    if plan is None:
+        raise RuntimeError("条件路由失败：缺少查询计划")
+
+    if plan.intent == "out_of_scope":
+        return "reject"
+
+    return "retrieve"
 
 
 def retrieve_node(
     state: CareerRAGState,
 ) -> dict:
-    """执行 Dense + BM25 混合检索。"""
+    """按照查询计划执行混合检索。"""
 
-    question = state["question"]
-    top_k = state.get(
-        "top_k",
-        settings.retrieval_top_k,
-    )
+    plan = state.get("plan")
+
+    if plan is None:
+        raise RuntimeError("检索失败：缺少查询计划")
 
     chunks = hybrid_retrieve(
-        question=question,
-        top_k=top_k,
+        # 检索使用规划器改写后的问题
+        question=plan.search_query,
+        top_k=plan.top_k,
     )
 
-    # 节点只返回自己新增或修改的状态
     return {
         "chunks": chunks,
     }
@@ -29,13 +60,28 @@ def retrieve_node(
 def generate_node(
     state: CareerRAGState,
 ) -> dict:
-    """根据检索结果生成带引用回答。"""
+    """使用原始问题和检索结果生成回答。"""
 
     result = generate_answer(
+        # 回答时必须使用 HR 的原始问题
         question=state["question"],
         chunks=state.get("chunks", []),
     )
 
     return {
         "result": result,
+    }
+
+
+def reject_node(
+    state: CareerRAGState,
+) -> dict:
+    """拒绝回答与个人履历无关的问题。"""
+
+    return {
+        "result": RAGAnswer(
+            question=state["question"],
+            answer=OUT_OF_SCOPE_ANSWER,
+            citations=[],
+        )
     }

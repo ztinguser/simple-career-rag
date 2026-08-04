@@ -1,9 +1,11 @@
 from langgraph.graph import END, START, StateGraph
 
-from career_rag.config.settings import settings
 from career_rag.graph.nodes import (
     generate_node,
+    plan_node,
+    reject_node,
     retrieve_node,
+    route_after_plan,
 )
 from career_rag.graph.state import CareerRAGState
 from career_rag.schemas.qa import RAGAnswer
@@ -15,22 +17,33 @@ class CareerRAGGraphError(RuntimeError):
 
 graph_builder = StateGraph(CareerRAGState)
 
+graph_builder.add_node("plan", plan_node)
 graph_builder.add_node("retrieve", retrieve_node)
 graph_builder.add_node("generate", generate_node)
+graph_builder.add_node("reject", reject_node)
 
-graph_builder.add_edge(START, "retrieve")
+graph_builder.add_edge(START, "plan")
+
+graph_builder.add_conditional_edges(
+    "plan",
+    route_after_plan,
+    {
+        "retrieve": "retrieve",
+        "reject": "reject",
+    },
+)
+
 graph_builder.add_edge("retrieve", "generate")
 graph_builder.add_edge("generate", END)
+graph_builder.add_edge("reject", END)
 
-# compile 会检查节点和边是否合法
 career_rag_graph = graph_builder.compile()
 
 
 def run_career_rag_graph(
     question: str,
-    top_k: int = settings.retrieval_top_k,
 ) -> RAGAnswer:
-    """执行完整的履历 RAG Graph。"""
+    """执行带查询规划的履历 RAG Graph。"""
 
     if not question.strip():
         raise CareerRAGGraphError(
@@ -41,7 +54,6 @@ def run_career_rag_graph(
         final_state = career_rag_graph.invoke(
             {
                 "question": question,
-                "top_k": top_k,
             }
         )
 

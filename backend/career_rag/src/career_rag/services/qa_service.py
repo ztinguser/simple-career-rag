@@ -78,6 +78,39 @@ def extract_citation_ids(
     return citation_ids
 
 
+def renumber_citations(
+    answer: str,
+    citation_ids: list[int],
+) -> tuple[str, dict[int, int]]:
+    """把上下文编号转换为连续的前端展示编号。"""
+
+    # 例如模型引用 [1]、[4]，最终展示为 [1]、[2]
+    citation_mapping = {
+        original_id: display_id
+        for display_id, original_id in enumerate(
+            citation_ids,
+            start=1,
+        )
+    }
+
+    def replace_citation(match: re.Match[str]) -> str:
+        original_id = int(match.group(1))
+        display_id = citation_mapping.get(original_id)
+
+        if display_id is None:
+            return match.group(0)
+
+        return f"[{display_id}]"
+
+    new_answer = re.sub(
+        r"\[(\d+)\]",
+        replace_citation,
+        answer,
+    )
+
+    return new_answer, citation_mapping
+
+
 def generate_answer(
     question: str,
     chunks: list[HybridRetrievedChunk],
@@ -138,17 +171,24 @@ def generate_answer(
                 "无资料回答不应包含原文引用"
             )
 
+        answer, citation_mapping = renumber_citations(
+            answer=answer,
+            citation_ids=citation_ids,
+        )
+
         citations = [
             Citation(
-                citation_id=citation_id,
-                chunk_id=chunks[citation_id - 1].chunk_id,
-                source_name=chunks[citation_id - 1].source_name,
-                page_numbers=chunks[citation_id - 1].page_numbers,
-                headings=chunks[citation_id - 1].headings,
+                # 前端使用连续编号，查找原文仍用原始上下文编号
+                citation_id=display_id,
+                chunk_id=chunks[original_id - 1].chunk_id,
+                source_name=chunks[original_id - 1].source_name,
+                page_numbers=chunks[original_id - 1].page_numbers,
+                headings=chunks[original_id - 1].headings,
                 # 返回真实 Chunk 原文，不让模型自己生成引用内容
-                content=chunks[citation_id - 1].content,
+                content=chunks[original_id - 1].content,
             )
-            for citation_id in citation_ids
+            for original_id, display_id
+            in citation_mapping.items()
         ]
 
         return RAGAnswer(

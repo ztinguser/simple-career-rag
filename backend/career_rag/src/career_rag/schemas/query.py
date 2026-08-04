@@ -17,7 +17,12 @@ class QueryPlan(BaseModel):
         "out_of_scope",
     ] = Field(description="问题类型")
 
-    rewritten_question: str = Field(
+    rewrite_needed: bool = Field(
+        description="是否需要向 HR 展示改写后的问题"
+    )
+
+    rewritten_question: str | None = Field(
+        default=None,
         description="面向 HR 展示的自然语言改写问题"
     )
 

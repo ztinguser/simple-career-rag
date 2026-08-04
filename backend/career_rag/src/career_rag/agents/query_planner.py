@@ -43,23 +43,35 @@ def plan_query(question: str) -> QueryPlan:
             # 防止某些兼容服务返回普通 dict
             plan = QueryPlan.model_validate(result)
 
+        # 题外问题和明确问题都不向 HR 展示改写
+        if plan.intent == "out_of_scope" or not plan.rewrite_needed:
+            return plan.model_copy(
+                update={
+                    "rewrite_needed": False,
+                    "rewritten_question": None,
+                }
+            )
+
+        rewritten_question = (
+            plan.rewritten_question or ""
+        ).strip()
+
+        if not rewritten_question:
+            raise QueryPlannerError(
+                "查询规划失败：需要改写但未返回改写问题"
+            )
+
         original = "".join(question.split()).rstrip("？?。")
         rewritten = "".join(
-            plan.rewritten_question.split()
+            rewritten_question.split()
         ).rstrip("？?。")
 
-        # 模型偶尔会原样返回问题，程序侧保证展示字段确实有改写
-        if plan.intent != "out_of_scope" and rewritten == original:
-            hr_question = question.strip()
-
-            for subject in ("候选人", "她", "他"):
-                hr_question = hr_question.replace(subject, "你")
-
-            plan = plan.model_copy(
+        # 没有产生实质改写时，不向 HR 展示重复问题
+        if rewritten == original:
+            return plan.model_copy(
                 update={
-                    "rewritten_question": (
-                        f"请结合你的履历资料说明：{hr_question}"
-                    )
+                    "rewrite_needed": False,
+                    "rewritten_question": None,
                 }
             )
 

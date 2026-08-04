@@ -76,7 +76,11 @@ def generate_node(
     # 面向 HR 展示自然语言改写，不暴露检索关键词
     result = result.model_copy(
         update={
-            "rewritten_question": plan.rewritten_question,
+            "rewritten_question": (
+                plan.rewritten_question
+                if plan.rewrite_needed
+                else None
+            ),
         }
     )
 

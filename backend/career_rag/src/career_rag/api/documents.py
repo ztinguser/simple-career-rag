@@ -211,6 +211,6 @@ async def chunk_parsed_document(
         document_id=normalized_id,
         filename=original_filename,
         chunk_count=len(chunks),
-        chunks_preview=chunks,
+        chunks_preview=chunks[:3],
         message="文档分块成功",
     )

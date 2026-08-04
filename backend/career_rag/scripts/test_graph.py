@@ -22,6 +22,10 @@ def main() -> None:
         print(exc)
         raise SystemExit(1) from exc
 
+    if result.rewritten_question:
+        print("\n猜你想问：")
+        print(result.rewritten_question)
+
     print("\n回答：")
     print(result.answer)
 

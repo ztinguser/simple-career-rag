@@ -38,10 +38,27 @@ def plan_query(question: str) -> QueryPlan:
         )
 
         if isinstance(result, QueryPlan):
-            return result
+            plan = result
+        else:
+            # 防止某些兼容服务返回普通 dict
+            plan = QueryPlan.model_validate(result)
 
-        # 防止某些兼容服务返回普通 dict
-        return QueryPlan.model_validate(result)
+        original = "".join(question.split()).rstrip("？?。")
+        rewritten = "".join(
+            plan.rewritten_question.split()
+        ).rstrip("？?。")
+
+        # 模型偶尔会原样返回问题，程序侧保证展示字段确实有改写
+        if plan.intent != "out_of_scope" and rewritten == original:
+            plan = plan.model_copy(
+                update={
+                    "rewritten_question": (
+                        f"结合候选人的履历资料，{question.strip()}"
+                    )
+                }
+            )
+
+        return plan
 
     except QueryPlannerError:
         raise

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 
+
 class AskQuestionRequest(BaseModel):
     """HR 的履历问题。"""
 
@@ -20,7 +21,6 @@ class AskQuestionRequest(BaseModel):
         return question
 
 
-
 class Citation(BaseModel):
     """回答引用的一段履历原文。"""
 
@@ -38,3 +38,5 @@ class RAGAnswer(BaseModel):
     question: str
     answer: str
     citations: list[Citation]
+    # 题外问题不经过检索，因此没有改写问题
+    rewritten_question: str | None = None

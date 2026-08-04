@@ -17,8 +17,12 @@ class QueryPlan(BaseModel):
         "out_of_scope",
     ] = Field(description="问题类型")
 
+    rewritten_question: str = Field(
+        description="面向 HR 展示的自然语言改写问题"
+    )
+
     search_query: str = Field(
-        description="用于检索履历的改写问题"
+        description="用于检索履历的关键词或改写查询"
     )
 
     top_k: int = Field(

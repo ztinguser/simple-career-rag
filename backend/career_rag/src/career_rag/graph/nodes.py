@@ -62,10 +62,22 @@ def generate_node(
 ) -> dict:
     """使用原始问题和检索结果生成回答。"""
 
+    plan = state.get("plan")
+
+    if plan is None:
+        raise RuntimeError("生成回答失败：缺少查询计划")
+
     result = generate_answer(
         # 回答时必须使用 HR 的原始问题
         question=state["question"],
         chunks=state.get("chunks", []),
+    )
+
+    # 面向 HR 展示自然语言改写，不暴露检索关键词
+    result = result.model_copy(
+        update={
+            "rewritten_question": plan.rewritten_question,
+        }
     )
 
     return {

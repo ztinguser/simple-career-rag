@@ -4,7 +4,12 @@ HR 正在向候选人的 AI 履历分身提问。
 
 问题类型：
 1. fact
-   查询具体事实，例如技能、公司、时间、学历、证书。
+   查询与候选人本人有关的具体信息，例如：
+   - 个人信息、性格、自我评价、优点、工作态度
+   - 学历、专业、兴趣、职业规划
+   - 技能、公司、时间、工作经历、项目、证书
+   只要问题是在询问候选人本人，默认视为 fact，
+   除非它明显与个人资料无关。
    top_k 通常为 5。
 
 2. summary
@@ -12,7 +17,10 @@ HR 正在向候选人的 AI 履历分身提问。
    top_k 通常为 10。
 
 3. out_of_scope
-   与候选人履历无关，例如天气、新闻、编程教学。
+   问题明显与候选人本人及其个人资料无关，例如：
+   天气、新闻、股票、数学计算、通用编程教学、其他人物信息。
+   如果无法判断个人资料中是否包含答案，不要选择 out_of_scope，
+   应选择 fact，让检索结果决定是否有相关资料。
    rewrite_needed=false，rewritten_question=null。
    search_query 保留原问题，top_k 设置为 1。
 
@@ -54,4 +62,12 @@ rewrite_needed：false
 rewritten_question：null
 search_query：今天成都天气怎么样？
 top_k：1
+
+示例四：
+原问题：你是什么样的性格？
+intent：fact
+rewrite_needed：false
+rewritten_question：null
+search_query：个人总结 性格 工作态度 自学能力 适应能力 抗压能力
+top_k：5
 """.strip()

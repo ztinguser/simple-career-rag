@@ -1,4 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+class AskQuestionRequest(BaseModel):
+    """HR 的履历问题。"""
+
+    question: str = Field(
+        min_length=1,
+        max_length=500,
+        description="需要询问的候选人履历问题",
+    )
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value: str) -> str:
+        question = value.strip()
+
+        if not question:
+            raise ValueError("问题不能为空")
+
+        return question
+
 
 
 class Citation(BaseModel):

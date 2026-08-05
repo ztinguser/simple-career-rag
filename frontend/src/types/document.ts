@@ -35,3 +35,11 @@ export interface ChunkDocumentResponse {
   chunks_preview: DocumentChunk[]
   message: string
 }
+
+// 文档写入向量数据库后的响应
+export interface IndexDocumentResponse {
+  document_id: string
+  filename: string
+  chunk_count: number
+  message: string
+}

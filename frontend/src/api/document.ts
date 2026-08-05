@@ -1,6 +1,7 @@
 import {apiRequest} from './http'
 import type {
     ChunkDocumentResponse,
+    IndexDocumentResponse,
     ParseDocumentResponse,
     UploadDocumentResponse,
 } from '../types/document'
@@ -43,4 +44,16 @@ export function chunkDocument(
         },
         '文档分块失败',
     )
+}
+
+export function indexDocument(
+  documentId: string,
+): Promise<IndexDocumentResponse> {
+  return apiRequest<IndexDocumentResponse>(
+    `/api/documents/index/${documentId}`,
+    {
+      method: 'POST',
+    },
+    'chunk入库索引失败',
+  )
 }

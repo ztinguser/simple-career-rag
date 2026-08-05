@@ -1,11 +1,11 @@
 import {useState} from 'react'
 import {
-    chunkDocument,
+    chunkDocument, indexDocument,
     parseDocument,
     uploadDocument,
 } from '../../api/document'
 import type {
-    ChunkDocumentResponse,
+    ChunkDocumentResponse, IndexDocumentResponse,
     ParseDocumentResponse,
     UploadDocumentResponse,
 } from '../../types/document'
@@ -15,11 +15,13 @@ function DocumentWorkflow() {
     const [uploadResult, setUploadResult] = useState<UploadDocumentResponse | null>(null)
     const [parseResult, setParseResult] = useState<ParseDocumentResponse | null>(null)
     const [chunkResult, setChunkResult] = useState<ChunkDocumentResponse | null>(null)
+    const [indexResult, setIndexResult] = useState<IndexDocumentResponse | null>(null)
 
     const [errorMessage, setErrorMessage] = useState('')
     const [isUploading, setIsUploading] = useState(false)
     const [isParsing, setIsParsing] = useState(false)
     const [isChunking, setIsChunking] = useState(false)
+    const [isIndexing, setIsIndexing] = useState(false)
 
     async function handleUpload() {
         if (!selectedFile) {
@@ -32,6 +34,7 @@ function DocumentWorkflow() {
         setUploadResult(null)
         setParseResult(null)
         setChunkResult(null)
+        setIndexResult(null)
 
         try {
             const result = await uploadDocument(selectedFile)
@@ -58,6 +61,7 @@ function DocumentWorkflow() {
         setErrorMessage('')
         setParseResult(null)
         setChunkResult(null)
+        setIndexResult(null)
 
         try {
             const result = await parseDocument(uploadResult.document_id)
@@ -83,6 +87,7 @@ function DocumentWorkflow() {
         setIsChunking(true)
         setErrorMessage('')
         setChunkResult(null)
+        setIndexResult(null)
 
         try {
             const result = await chunkDocument(parseResult.document_id)
@@ -96,6 +101,31 @@ function DocumentWorkflow() {
             setErrorMessage(message)
         } finally {
             setIsChunking(false)
+        }
+    }
+
+    async function handleIndex() {
+        if (!chunkResult) {
+            setErrorMessage('请先生成文档分块')
+            return
+        }
+
+        setIsIndexing(true)
+        setErrorMessage('')
+        setIndexResult(null)
+
+        try {
+            const result = await indexDocument(chunkResult.document_id)
+            setIndexResult(result)
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : '文档索引失败，请稍后重试'
+
+            setErrorMessage(message)
+        } finally {
+            setIsIndexing(false)
         }
     }
 
@@ -187,6 +217,24 @@ function DocumentWorkflow() {
                             <p>{chunk.content}</p>
                         </article>
                     ))}
+
+                    <button
+                        type="button"
+                        disabled={isIndexing}
+                        onClick={handleIndex}
+                    >
+                        {isIndexing ? '索引中...' : '写入向量数据库'}
+                    </button>
+
+                </div>
+            )}
+
+            {indexResult && (
+                <div>
+                    <p>{indexResult.message}</p>
+                    <p>文件名：{indexResult.filename}</p>
+                    <p>已索引分块数：{indexResult.chunk_count}</p>
+                    <p>履历资料准备完成，可以开始问答。</p>
                 </div>
             )}
         </section>

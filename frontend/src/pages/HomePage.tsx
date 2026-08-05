@@ -1,4 +1,5 @@
 import DocumentWorkflow from "../features/documents/DocumentWorkflow.tsx";
+import ChatPanel from "../features/chat/ChatPanel.tsx";
 
 function HomePage() {
     return (
@@ -11,7 +12,8 @@ function HomePage() {
                 前端项目已成功启动。
             </p>
 
-            <DocumentWorkflow/>
+            {/*<DocumentWorkflow/>*/}
+            <ChatPanel/>
 
 
         </main>

@@ -1,4 +1,4 @@
-import DocumentUpload from "../features/documents/DocumentUpload.tsx";
+import DocumentWorkflow from "../features/documents/DocumentWorkflow.tsx";
 
 function HomePage() {
     return (
@@ -11,7 +11,7 @@ function HomePage() {
                 前端项目已成功启动。
             </p>
 
-            <DocumentUpload/>
+            <DocumentWorkflow/>
 
 
         </main>

@@ -1,4 +1,4 @@
-import type { UploadDocumentResponse } from '../types/document'
+import type { ParseDocumentResponse, UploadDocumentResponse } from '../types/document'
 
 export async function uploadDocument(
   file: File,
@@ -22,6 +22,31 @@ export async function uploadDocument(
   }
 
   const data = (await response.json()) as UploadDocumentResponse
+
+  return data
+}
+
+export async function parseDocument(
+  documentId: string,
+): Promise<ParseDocumentResponse> {
+  const response = await fetch(
+    `/api/documents/parse/${documentId}`,
+    {
+      method: 'POST',
+    },
+  )
+
+  if (!response.ok) {
+    const errorData: { detail?: string } | null = await response
+      .json()
+      .catch(() => null)
+
+    throw new Error(
+      errorData?.detail ?? `文档解析失败（状态码：${response.status}）`,
+    )
+  }
+
+  const data = (await response.json()) as ParseDocumentResponse
 
   return data
 }

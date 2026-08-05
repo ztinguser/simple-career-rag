@@ -49,6 +49,13 @@ class ChunkDocumentResponse(BaseModel):
     chunks_preview: list[DocumentChunk]
     message: str
 
+class IndexDocumentResponse(BaseModel):
+    """文档写入向量数据库后的响应。"""
+
+    document_id: str
+    filename: str
+    chunk_count: int
+    message: str
 
 class HybridRetrievedChunk(RetrievedChunk):
     """经过 Dense 和 BM25 融合后的检索结果。

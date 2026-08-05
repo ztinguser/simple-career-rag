@@ -8,8 +8,13 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from career_rag.config.settings import settings
 from career_rag.schemas.document import (
     ChunkDocumentResponse,
+    IndexDocumentResponse,
     ParseDocumentResponse,
     UploadDocumentResponse)
+from career_rag.services.indexing_service import (
+    DocumentIndexError,
+    index_document,
+)
 from starlette.concurrency import run_in_threadpool
 from career_rag.services.document_parser import DocumentParseError,parse_document
 from career_rag.retriever.chunker import DocumentChunkError, build_document_chunks
@@ -213,4 +218,45 @@ async def chunk_parsed_document(
         chunk_count=len(chunks),
         chunks_preview=chunks[:3],
         message="文档分块成功",
+    )
+
+
+@router.post(
+    "/index/{document_id}",
+    response_model=IndexDocumentResponse,
+)
+async def index_parsed_document(
+    document_id: str,
+) -> IndexDocumentResponse:
+    """为已解析的文档生成向量并写入 Qdrant。"""
+
+    try:
+        normalized_id = UUID(document_id).hex
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document_id 格式不正确",
+        ) from exc
+
+    try:
+        # Embedding 和 Qdrant 操作都是同步任务，放入线程池执行
+        chunks = await run_in_threadpool(
+            index_document,
+            normalized_id,
+        )
+    except DocumentIndexError as exc:
+        logger.exception(
+            "文档索引失败，document_id=%s",
+            normalized_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="文档索引失败，请确认 Embedding 和 Qdrant 服务可用",
+        ) from exc
+
+    return IndexDocumentResponse(
+        document_id=normalized_id,
+        filename=chunks[0].source_name,
+        chunk_count=len(chunks),
+        message="文档索引成功",
     )

@@ -54,6 +54,6 @@ export function indexDocument(
     {
       method: 'POST',
     },
-    'chunk入库索引失败',
+    '文档索引失败',
   )
 }
